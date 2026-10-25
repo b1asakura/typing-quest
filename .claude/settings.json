@@ -6,5 +6,19 @@
       "Bash(npm run test)",
       "Bash(npx tsc --noEmit)"
     ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/spec-sync-check.sh",
+            "timeout": 30,
+            "statusMessage": "SPEC.md の更新漏れを確認中..."
+          }
+        ]
+      }
+    ]
   }
 }
