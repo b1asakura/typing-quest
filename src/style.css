@@ -1,0 +1,407 @@
+:root {
+  --font: 'Hiragino Maru Gothic ProN', 'Hiragino Sans', 'Yu Gothic UI', 'Meiryo', system-ui, sans-serif;
+  --panel: rgba(20, 22, 40, 0.78);
+  --text: #ffffff;
+  --accent: #6cc24a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #1a1a2a;
+  color: var(--text);
+  font-family: var(--font);
+  user-select: none;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+
+canvas {
+  display: block;
+}
+
+.hud-root {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hud-root button {
+  pointer-events: auto;
+  font-family: var(--font);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* ---------- コースせんたく ---------- */
+.select-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px 16px;
+  background: linear-gradient(180deg, rgba(60, 140, 220, 0.92), rgba(40, 90, 60, 0.92));
+  pointer-events: auto;
+  overflow-y: auto;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(28px, 5vw, 56px);
+  letter-spacing: 0.06em;
+  text-shadow: 4px 4px 0 #2a2a3a;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: clamp(18px, 2.4vw, 26px);
+}
+
+.course-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  width: min(1100px, 100%);
+  margin-top: 12px;
+}
+
+.course-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 18px 18px 22px;
+  border: 4px solid #2a2a3a;
+  border-bottom-width: 10px;
+  background: #fdfdf6;
+  color: #2a2a3a;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s;
+  box-shadow: inset 0 -8px 0 var(--accent);
+}
+
+.course-card:hover,
+.course-card:focus-visible {
+  transform: translateY(-4px) scale(1.02);
+  outline: none;
+}
+
+.course-level {
+  padding: 2px 10px;
+  background: var(--accent);
+  color: #1a1a2a;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.course-title {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.course-desc {
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.course-key {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #2a2a3a;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.select-hint {
+  margin: 8px 0 0;
+  font-size: 16px;
+  opacity: 0.9;
+}
+
+/* ---------- じょうぶの ひょうじ ---------- */
+.hud-top {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hud-box {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--panel);
+  border: 3px solid #000;
+}
+
+.hud-caption {
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+.score-value,
+.defeated-value {
+  font-size: 26px;
+  font-weight: bold;
+  min-width: 2ch;
+}
+
+.score-value {
+  display: inline-block;
+  color: #ffe14a;
+}
+
+.score-value.pulse {
+  animation: pulse 0.25s ease-out;
+}
+
+@keyframes pulse {
+  50% {
+    transform: scale(1.3);
+  }
+}
+
+.hud-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.course-name {
+  padding: 6px 14px;
+  background: var(--panel);
+  border: 3px solid #000;
+  border-left: 8px solid var(--accent);
+  font-size: 16px;
+}
+
+.back-button {
+  padding: 8px 12px;
+  border: 3px solid #000;
+  background: #fdfdf6;
+  color: #2a2a3a;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* ---------- おだいラベル ---------- */
+.target-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 18px 10px;
+  background: var(--panel);
+  border: 3px solid #000;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.label-kana {
+  font-size: clamp(32px, 5vw, 52px);
+  font-weight: bold;
+  letter-spacing: 0.05em;
+  line-height: 1.1;
+}
+
+.label-kana .done,
+.label-romaji .done {
+  opacity: 0.35;
+}
+
+.label-romaji {
+  font-family: 'Menlo', 'Consolas', monospace;
+  font-size: clamp(22px, 3vw, 32px);
+  font-weight: bold;
+  letter-spacing: 0.12em;
+}
+
+.label-romaji.big {
+  font-size: clamp(44px, 7vw, 72px);
+}
+
+.label-romaji .next {
+  color: var(--finger);
+  text-decoration: underline 4px;
+  text-underline-offset: 6px;
+  display: inline-block;
+  animation: nextbob 0.6s ease-in-out infinite;
+}
+
+@keyframes nextbob {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.label-romaji .rest {
+  opacity: 0.95;
+}
+
+.label-timer {
+  width: 100%;
+  min-width: 160px;
+  height: 14px;
+  margin-top: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 2px solid #000;
+}
+
+.label-timer-fill {
+  height: 100%;
+  width: 100%;
+  background: #5ee05e;
+  transition: background 0.3s;
+}
+
+.label-timer.hurry {
+  animation: hurry 0.4s ease-in-out infinite;
+}
+
+@keyframes hurry {
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+/* ---------- ゆびガイド（キーボードの すぐ上） ---------- */
+.finger-guide {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -10px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 18px;
+  background: var(--panel);
+  border: 3px solid #000;
+  border-bottom: 6px solid var(--finger);
+  font-size: clamp(16px, 2.2vw, 22px);
+  white-space: nowrap;
+}
+
+.guide-key {
+  min-width: 44px;
+  padding: 2px 10px;
+  text-align: center;
+  background: var(--finger);
+  color: #1a1a2a;
+  font-weight: bold;
+  font-family: 'Menlo', 'Consolas', monospace;
+}
+
+.guide-text.small {
+  font-size: 0.85em;
+  opacity: 0.9;
+}
+
+.guide-compare {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.guide-key.wrong {
+  background: #ff8a8a;
+  animation: wiggle 0.3s ease-in-out 3;
+}
+
+.guide-key.correct {
+  background: #33ff66;
+}
+
+@keyframes wiggle {
+  25% {
+    transform: rotate(-8deg);
+  }
+  75% {
+    transform: rotate(8deg);
+  }
+}
+
+/* ---------- バナー ---------- */
+.banner {
+  position: absolute;
+  top: 48%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.6);
+  opacity: 0;
+  padding: 10px 28px;
+  font-size: clamp(26px, 4.5vw, 48px);
+  font-weight: bold;
+  white-space: nowrap;
+  text-shadow: 3px 3px 0 #2a2a3a;
+  transition: opacity 0.2s, transform 0.25s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.banner.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.banner.info {
+  color: #ffe14a;
+}
+
+.banner.success {
+  font-size: clamp(48px, 9vw, 96px);
+  color: #fff27a;
+  text-shadow: 4px 4px 0 #c07a00, 8px 8px 0 #2a2a3a;
+}
+
+.banner.gentle {
+  color: #ffffff;
+  background: rgba(40, 90, 160, 0.7);
+  border: 3px solid #000;
+}
+
+.ime-warning {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 14px 24px;
+  background: #fdfdf6;
+  color: #2a2a3a;
+  border: 4px solid #000;
+  font-size: 22px;
+  font-weight: bold;
+}
+
+@media (max-width: 600px) {
+  .hud-top {
+    flex-wrap: wrap;
+  }
+  .course-name {
+    display: none;
+  }
+}
