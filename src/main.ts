@@ -4,8 +4,11 @@ import * as THREE from 'three'
 import { AudioManager } from './audio/AudioManager.ts'
 import { COURSES, DIAMOND_CHANCE, ORE_SPAWN_EVERY, type CourseDef, type OreConfig } from './data/courses.ts'
 import { areNeighbors, normalizeKey } from './data/keyboard.ts'
+import { GAME_RULES } from './data/gameRules.ts'
 import { MESSAGES } from './data/messages.ts'
 import { createPrompt, type Prompt } from './game/prompts.ts'
+import { loadBest, saveBest } from './game/records.ts'
+import { RunStats, type SuccessResult } from './game/run.ts'
 import { TypingSession } from './game/typing.ts'
 import { Hud } from './ui/Hud.ts'
 import { Monster, Ore } from './voxel/entities.ts'
@@ -14,11 +17,14 @@ import { Stage } from './voxel/Stage.ts'
 
 type Phase =
   | 'select'
+  | 'countdown' // 3・2・1・スタート！
   | 'monster' // 通常モンスター（時間制限なし）
   | 'monsterDefeated'
   | 'oreIncoming' // 鉱石が降ってくる
   | 'mining' // カウントダウン採掘
   | 'oreResult'
+  | 'timeUp' // タイムアップの あいず
+  | 'result' // けっか がめん
 
 const app = document.querySelector<HTMLDivElement>('#app')!
 const stage = new Stage(app)
@@ -28,10 +34,11 @@ const audio = new AudioManager()
 const state = {
   phase: 'select' as Phase,
   course: COURSES[0] as CourseDef,
-  score: 0,
+  run: new RunStats(GAME_RULES),
   defeated: 0,
   untilOre: 3,
   phaseTimer: 0,
+  countdown: 0,
   monster: null as Monster | null,
   ore: null as Ore | null,
   oreConfig: null as OreConfig | null,
@@ -52,7 +59,7 @@ function showSelect(): void {
   state.session = null
   stage.keyboard.setTarget(null)
   stage.keyboard.clearMiss()
-  hud.showSelect()
+  hud.showSelect(new Map(COURSES.map((c) => [c.id, loadBest(c.id)])))
 }
 
 function startCourse(course: CourseDef): void {
@@ -62,13 +69,19 @@ function startCourse(course: CourseDef): void {
   removeTargets()
   stage.particles.clear()
   state.course = course
-  state.score = 0
+  state.run = new RunStats(GAME_RULES)
   state.defeated = 0
   state.untilOre = randInt(ORE_SPAWN_EVERY.min, ORE_SPAWN_EVERY.max)
   state.lastDisplay = undefined
+  state.session = null
   stage.setTheme(course.theme)
   hud.startCourse(course)
-  spawnMonster()
+  // すぐには始めず、3・2・1・スタート！ のあとにモンスターを出す（その間は時間も進まない）
+  state.phase = 'countdown'
+  state.countdown = GAME_RULES.countdownFrom
+  state.phaseTimer = GAME_RULES.countdownStep
+  hud.showCountdown(String(state.countdown), false)
+  refreshGuide()
 }
 
 function spawnMonster(): void {
@@ -143,8 +156,10 @@ function onType(key: string): void {
   const result = session.input(key)
 
   if (result === 'wrong') {
-    // ペナルティなし。カン！と弾かれて、キーボードで位置をくらべて見せる
+    // 減点なし（コンボだけ 0 にもどる）。カン！と弾かれて、キーボードで位置をくらべて見せる
     audio.play('miss')
+    state.run.breakCombo()
+    hud.setCombo(0)
     if (expected) {
       stage.keyboard.showMiss(key)
       hud.showMiss(key, expected, areNeighbors(key, expected))
@@ -177,10 +192,9 @@ function onMonsterHit(defeated: boolean): void {
   state.monster = null
   state.session = null
   hud.hideLabel()
-  state.score += state.course.monster.score
   state.defeated++
   state.untilOre--
-  hud.setScore(state.score, state.defeated)
+  applySuccess(state.run.success(state.course.monster.score))
   state.phase = 'monsterDefeated'
   state.phaseTimer = 0.8
 }
@@ -209,8 +223,7 @@ function onOreHit(complete: boolean): void {
   state.ore = null
   state.session = null
   hud.hideLabel()
-  state.score += state.oreConfig!.bonus
-  hud.setScore(state.score, state.defeated)
+  applySuccess(state.run.success(state.oreConfig!.bonus))
   hud.showBanner(MESSAGES.mineSuccess[Math.floor(Math.random() * MESSAGES.mineSuccess.length)], 'success', 2)
   finishOre()
 }
@@ -222,9 +235,47 @@ function onOreTimeout(): void {
   audio.play('escape')
   stage.particles.burst(ore.center().setY(0.2), [0x8a5a2b, 0x6a4a22, 0x9a6a35], { count: 30, speed: 3, upward: 4, size: 0.14, life: 1.4 })
   state.session = null
+  state.run.breakCombo()
+  hud.setCombo(0)
   hud.hideLabel()
   hud.showBanner(MESSAGES.mineFail, 'gentle', 2.4)
   finishOre()
+}
+
+function applySuccess(r: SuccessResult): void {
+  hud.setScore(state.run.score, state.defeated)
+  hud.setCombo(state.run.combo)
+  if (r.timeBonus > 0) {
+    audio.play('select')
+    hud.showBonus(MESSAGES.timeBonus(r.timeBonus), 'time')
+  } else if (r.comboBonus > 0) {
+    hud.showBonus(MESSAGES.comboBonus(r.comboBonus), 'points')
+  }
+}
+
+function onTimeUp(): void {
+  state.phase = 'timeUp'
+  state.phaseTimer = 1.6
+  state.session = null
+  hud.hideLabel()
+  stage.keyboard.clearMiss()
+  refreshGuide()
+  audio.play('success')
+  hud.showBanner(MESSAGES.timeUp, 'info', 1.6)
+}
+
+function showResult(): void {
+  const { run, course } = state
+  const newRecord = saveBest(course.id, run.score)
+  state.phase = 'result'
+  state.phaseTimer = GAME_RULES.resultInputDelay
+  hud.showResult({
+    score: run.score,
+    defeated: state.defeated,
+    maxCombo: run.maxCombo,
+    best: Math.max(loadBest(course.id), run.score),
+    newRecord,
+  })
 }
 
 function finishOre(): void {
@@ -254,6 +305,10 @@ window.addEventListener('keydown', (e) => {
     showSelect()
     return
   }
+  if (state.phase === 'result') {
+    if ((e.key === 'Enter' || e.key === ' ') && state.phaseTimer <= 0) startCourse(state.course)
+    return
+  }
   const key = normalizeKey(e.key)
   if (key) onType(key)
 })
@@ -262,6 +317,7 @@ window.addEventListener('pointerdown', () => audio.unlock())
 
 hud.onSelectCourse = startCourse
 hud.onBack = showSelect
+hud.onRetry = () => startCourse(state.course)
 stage.particles.onAbsorb = (() => {
   let last = 0
   return () => {
@@ -280,13 +336,21 @@ timer.connect(document)
 
 function tick(timestamp: number): void {
   timer.update(timestamp)
-  const dt = Math.min(timer.getDelta(), 0.1)
+  const dt = Math.max(0, Math.min(timer.getDelta(), 0.1))
 
   state.monster?.update(dt)
   state.ore?.update(dt)
 
   switch (state.phase) {
+    // 全体の制限時間は モンスターの あいだだけ進む（レア鉱石が出てから結果までは止まる）
+    case 'monster':
+      if (state.run.tick(dt)) onTimeUp()
+      break
     case 'monsterDefeated':
+      if (state.run.tick(dt)) {
+        onTimeUp()
+        break
+      }
       state.phaseTimer -= dt
       if (state.phaseTimer <= 0) {
         if (state.untilOre <= 0) startOre()
@@ -315,6 +379,32 @@ function tick(timestamp: number): void {
         spawnMonster()
       }
       break
+    case 'countdown':
+      state.phaseTimer -= dt
+      if (state.phaseTimer <= 0) {
+        state.countdown--
+        state.phaseTimer = GAME_RULES.countdownStep
+        if (state.countdown > 0) {
+          audio.play('select')
+          hud.showCountdown(String(state.countdown), false)
+        } else {
+          audio.play('success')
+          hud.showCountdown(MESSAGES.countdownStart, true)
+          spawnMonster()
+        }
+      }
+      break
+    case 'timeUp':
+      state.phaseTimer -= dt
+      if (state.phaseTimer <= 0) showResult()
+      break
+    case 'result':
+      state.phaseTimer -= dt
+      break
+  }
+  if (state.phase !== 'select') {
+    const stopped = state.phase === 'oreIncoming' || state.phase === 'mining' || state.phase === 'oreResult'
+    hud.setTimeLeft(state.run.timeLeft, stopped, state.run.timeLeft <= GAME_RULES.hurryTime)
   }
 
   // お題ラベルを頭の上に

@@ -186,6 +186,242 @@ canvas {
   }
 }
 
+.time-value,
+.combo-value {
+  display: inline-block;
+  font-size: 26px;
+  font-weight: bold;
+  min-width: 2ch;
+}
+
+.time-value {
+  color: #8fe8ff;
+}
+
+.time-stopped {
+  padding: 1px 8px;
+  background: #8fe8ff;
+  color: #1a1a2a;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.time-box.stopped .time-value {
+  opacity: 0.6;
+}
+
+.time-box.hurry {
+  border-color: #ff9a3a;
+  animation: hurry 0.6s ease-in-out infinite;
+}
+
+.time-box.hurry .time-value {
+  color: #ffb45e;
+}
+
+.combo-box {
+  opacity: 0.55;
+  transition: opacity 0.2s;
+}
+
+.combo-box.active {
+  opacity: 1;
+}
+
+.combo-box.active .combo-value {
+  color: #ff9af0;
+}
+
+.combo-value.pulse {
+  animation: pulse 0.25s ease-out;
+}
+
+/* ---------- ボーナスの ポップアップ ---------- */
+.bonus-popup {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  font-size: clamp(26px, 4vw, 40px);
+  font-weight: bold;
+  white-space: nowrap;
+  text-shadow: 3px 3px 0 #2a2a3a;
+}
+
+.bonus-popup.points {
+  color: #ff9af0;
+}
+
+.bonus-popup.time {
+  color: #8fe8ff;
+  font-size: clamp(32px, 5vw, 52px);
+}
+
+.bonus-popup.show {
+  animation: bonus 1.4s ease-out forwards;
+}
+
+@keyframes bonus {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 16px) scale(0.6);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.15);
+  }
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -6px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -24px) scale(1);
+  }
+}
+
+/* ---------- カウントダウン ---------- */
+.countdown {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  font-size: clamp(110px, 20vw, 200px);
+  font-weight: bold;
+  color: #ffffff;
+  white-space: nowrap;
+  text-shadow: 6px 6px 0 #2a2a3a;
+}
+
+.countdown.start {
+  font-size: clamp(64px, 12vw, 128px);
+  color: #fff27a;
+  text-shadow: 5px 5px 0 #c07a00, 10px 10px 0 #2a2a3a;
+}
+
+.countdown.show {
+  animation: countdown 0.8s ease-out forwards;
+}
+
+@keyframes countdown {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.8);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+}
+
+/* ---------- けっか がめん ---------- */
+.result-screen {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(20, 30, 60, 0.55);
+  pointer-events: auto;
+}
+
+.result-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: min(460px, 100%);
+  padding: 24px 28px 28px;
+  background: #fdfdf6;
+  color: #2a2a3a;
+  border: 4px solid #2a2a3a;
+  border-bottom-width: 10px;
+  box-shadow: inset 0 -8px 0 var(--accent);
+  animation: popin 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+@keyframes popin {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+
+.result-title {
+  margin: 0 0 6px;
+  text-align: center;
+  font-size: clamp(26px, 4vw, 36px);
+}
+
+.result-new {
+  align-self: center;
+  padding: 4px 18px;
+  background: #ffe14a;
+  border: 3px solid #2a2a3a;
+  font-size: 24px;
+  font-weight: bold;
+  animation: pulse 0.8s ease-in-out infinite;
+}
+
+.result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 4px 0;
+  border-bottom: 2px dashed rgba(42, 42, 58, 0.25);
+  font-size: 18px;
+}
+
+.result-row.main .result-value {
+  font-size: 44px;
+  color: #c07a00;
+}
+
+.result-value {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.result-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.result-button {
+  flex: 1 1 160px;
+  padding: 12px;
+  border: 3px solid #2a2a3a;
+  border-bottom-width: 6px;
+  background: #fdfdf6;
+  color: #2a2a3a;
+  font-size: 17px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.result-button.primary {
+  background: var(--accent);
+}
+
+.course-best {
+  padding: 2px 10px;
+  background: #ffe14a;
+  font-size: 15px;
+  font-weight: bold;
+}
+
 .hud-right {
   margin-left: auto;
   display: flex;

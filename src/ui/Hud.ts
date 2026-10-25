@@ -25,6 +25,15 @@ export class Hud {
   private scoreValue = el('span', 'score-value', '0')
   private defeatedValue = el('span', 'defeated-value', '0')
   private courseName = el('span', 'course-name')
+  private timeBox = el('div', 'hud-box time-box')
+  private timeValue = el('span', 'time-value', '0')
+  private timeStopped = el('span', 'time-stopped', MESSAGES.timeStopped)
+  private comboBox = el('div', 'hud-box combo-box')
+  private comboValue = el('span', 'combo-value', '0')
+  private popup = el('div', 'bonus-popup')
+  private countdown = el('div', 'countdown')
+  private result = el('div', 'result-screen')
+  private bestLabels = new Map<string, HTMLElement>()
   private label = el('div', 'target-label')
   private labelKana = el('div', 'label-kana')
   private labelRomaji = el('div', 'label-romaji')
@@ -42,11 +51,14 @@ export class Hud {
 
   onSelectCourse: ((course: CourseDef) => void) | null = null
   onBack: (() => void) | null = null
+  onRetry: (() => void) | null = null
 
   constructor(container: HTMLElement, courses: CourseDef[]) {
     container.appendChild(this.root)
     this.buildSelect(courses)
     this.buildTop()
+    this.result.hidden = true
+    this.root.append(this.popup, this.countdown, this.result)
 
     this.timer.appendChild(this.timerFill)
     this.label.append(this.labelKana, this.labelRomaji, this.timer)
@@ -57,9 +69,16 @@ export class Hud {
     this.root.append(this.label, this.guide, this.banner, this.ime)
   }
 
-  showSelect(): void {
+  showSelect(bestScores: Map<string, number>): void {
+    for (const [id, label] of this.bestLabels) {
+      const best = bestScores.get(id) ?? 0
+      label.textContent = MESSAGES.bestOnCard(best)
+      label.hidden = best <= 0
+    }
     this.select.hidden = false
     this.top.hidden = true
+    this.result.hidden = true
+    this.countdown.classList.remove('show')
     this.hideLabel()
     this.guide.hidden = true
     this.guideState = ''
@@ -75,6 +94,74 @@ export class Hud {
     this.targetScore = 0
     this.scoreValue.textContent = '0'
     this.defeatedValue.textContent = '0'
+    this.result.hidden = true
+    this.setCombo(0)
+  }
+
+  /** 開始前のカウントダウン。start は さいごの「スタート！」 */
+  showCountdown(text: string, start: boolean): void {
+    this.countdown.textContent = text
+    this.countdown.className = `countdown${start ? ' start' : ''}`
+    void this.countdown.offsetWidth
+    this.countdown.classList.add('show')
+  }
+
+  /** のこり時間（秒）。stopped のときは レア鉱石で止まっている */
+  setTimeLeft(seconds: number, stopped: boolean, hurry: boolean): void {
+    this.timeValue.textContent = String(Math.ceil(seconds))
+    this.timeStopped.hidden = !stopped
+    this.timeBox.classList.toggle('stopped', stopped)
+    this.timeBox.classList.toggle('hurry', hurry && !stopped)
+  }
+
+  setCombo(combo: number): void {
+    this.comboValue.textContent = String(combo)
+    this.comboBox.classList.toggle('active', combo >= 2)
+    if (combo >= 2) {
+      this.comboValue.classList.remove('pulse')
+      void this.comboValue.offsetWidth
+      this.comboValue.classList.add('pulse')
+    }
+  }
+
+  /** コンボボーナス・時間ボーナスを ふわっと出す */
+  showBonus(text: string, kind: 'points' | 'time'): void {
+    this.popup.textContent = text
+    this.popup.className = `bonus-popup ${kind}`
+    void this.popup.offsetWidth
+    this.popup.classList.add('show')
+  }
+
+  showResult(r: { score: number; defeated: number; maxCombo: number; best: number; newRecord: boolean }): void {
+    this.hideLabel()
+    this.guide.hidden = true
+    this.guideState = ''
+    this.banner.classList.remove('show')
+    const panel = el('div', 'result-panel')
+    const row = (caption: string, value: number, cls = '') => {
+      const line = el('div', `result-row ${cls}`)
+      line.append(el('span', 'result-caption', caption), el('span', 'result-value', String(value)))
+      return line
+    }
+    panel.append(el('h2', 'result-title', MESSAGES.resultTitle))
+    if (r.newRecord) panel.append(el('div', 'result-new', MESSAGES.newRecord))
+    panel.append(
+      row(MESSAGES.resultScore, r.score, 'main'),
+      row(MESSAGES.resultDefeated, r.defeated),
+      row(MESSAGES.resultMaxCombo, r.maxCombo),
+      row(MESSAGES.resultBest, r.best),
+    )
+    const buttons = el('div', 'result-buttons')
+    const retry = el('button', 'result-button primary', MESSAGES.retry)
+    retry.type = 'button'
+    retry.addEventListener('click', () => this.onRetry?.())
+    const back = el('button', 'result-button', MESSAGES.toSelect)
+    back.type = 'button'
+    back.addEventListener('click', () => this.onBack?.())
+    buttons.append(retry, back)
+    panel.append(buttons)
+    this.result.replaceChildren(panel)
+    this.result.hidden = false
   }
 
   setScore(score: number, defeated: number): void {
@@ -211,10 +298,14 @@ export class Hud {
       const card = el('button', 'course-card')
       card.type = 'button'
       card.style.setProperty('--accent', course.theme.accent)
+      const best = el('span', 'course-best')
+      best.hidden = true
+      this.bestLabels.set(course.id, best)
       card.append(
         el('span', 'course-level', `Lv.${course.level}`),
         el('span', 'course-title', course.name),
         el('span', 'course-desc', course.description),
+        best,
         el('span', 'course-key', `${i + 1}`),
       )
       card.addEventListener('click', () => this.onSelectCourse?.(course))
@@ -229,12 +320,14 @@ export class Hud {
     score.append(el('span', 'hud-caption', MESSAGES.score), this.scoreValue)
     const defeated = el('div', 'hud-box')
     defeated.append(el('span', 'hud-caption', MESSAGES.defeated), this.defeatedValue)
+    this.timeBox.append(el('span', 'hud-caption', MESSAGES.timeLeft), this.timeValue, this.timeStopped)
+    this.comboBox.append(el('span', 'hud-caption', MESSAGES.combo), this.comboValue)
     const back = el('button', 'back-button', MESSAGES.back)
     back.type = 'button'
     back.addEventListener('click', () => this.onBack?.())
     const right = el('div', 'hud-right')
     right.append(this.courseName, back)
-    this.top.append(score, defeated, right)
+    this.top.append(this.timeBox, score, defeated, this.comboBox, right)
     this.top.hidden = true
     this.root.appendChild(this.top)
   }
