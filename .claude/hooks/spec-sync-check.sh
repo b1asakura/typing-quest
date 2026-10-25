@@ -12,7 +12,8 @@ git rev-parse --git-dir >/dev/null 2>&1 || exit 0
 
 SPEC='.claude/SPEC.md'
 DECISIONS='.claude/decisions'
-changed=$( { git diff --name-only HEAD 2>/dev/null; git ls-files --others --exclude-standard; } | sort -u)
+# core.quotePath=false: 日本語のファイル名がエスケープされて判定から漏れないようにする
+changed=$( { git -c core.quotePath=false diff --name-only HEAD 2>/dev/null; git -c core.quotePath=false ls-files --others --exclude-standard; } | sort -u)
 
 # 仕様に関わるファイル: src/ 配下（テスト・CSS 以外）と index.html
 spec_relevant=$(echo "$changed" | grep -E '^(src/|index\.html$)' | grep -vE '\.test\.ts$|\.css$')
